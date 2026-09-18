@@ -1,15 +1,4 @@
-import type { Asset, AssetPage, AssetQuery, BulkResult } from '@/lib/types';
-
-/**
- * Baseline client. It works on a good network and falls apart on a bad one.
- *
- * Known gaps, all of which are yours to close:
- *   - no request cancellation
- *   - no retry, no backoff, no handling of Retry-After
- *   - no de-duplication of concurrent identical requests
- *   - error information is flattened into a string
- *   - callers cannot distinguish "retry this" from "do not retry this"
- */
+import type { Asset, AssetFacets, AssetPage, AssetQuery, BulkResult } from '@/lib/types';
 
 function toSearchParams(query: AssetQuery): string {
   const params = new URLSearchParams();
@@ -25,26 +14,60 @@ function toSearchParams(query: AssetQuery): string {
   return params.toString();
 }
 
+interface ApiErrorOptions {
+  status: number;
+  code: string;
+  requestId: string | null;
+  retryAfter: string | null;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly requestId: string | null;
+  readonly retryAfter: string | null;
+
+  constructor(message: string, options: ApiErrorOptions) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = options.status;
+    this.code = options.code;
+    this.requestId = options.requestId;
+    this.retryAfter = options.retryAfter;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const response = await fetch(path, {
     ...init,
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
   });
-  if (!res.ok) {
-    let detail = res.statusText;
+  if (!response.ok) {
+    let errorMessage = response.statusText;
+    let code = 'unknown_error';
     try {
-      const body = await res.json();
-      detail = body?.error?.message ?? detail;
+      const body = await response.json();
+      errorMessage = body?.error?.message ?? errorMessage;
+      code = body?.error?.code ?? code;
     } catch {
       /* response was not JSON */
     }
-    throw new Error(`${res.status}: ${detail}`);
+    throw new ApiError(errorMessage, {
+      status: response.status,
+      code,
+      requestId: response.headers.get('x-request-id'),
+      retryAfter: response.headers.get('retry-after'),
+    });
   }
-  return res.json() as Promise<T>;
+  return response.json() as Promise<T>;
 }
 
-export function listAssets(query: AssetQuery): Promise<AssetPage> {
-  return request<AssetPage>(`/api/assets?${toSearchParams(query)}`);
+export function listAssets(query: AssetQuery, signal?: AbortSignal): Promise<AssetPage> {
+  return request<AssetPage>(`/api/assets?${toSearchParams(query)}`, { signal });
+}
+
+export function getFacets(signal?: AbortSignal): Promise<AssetFacets> {
+  return request<AssetFacets>('/api/facets', { signal });
 }
 
 export function getAsset(id: string): Promise<Asset> {
