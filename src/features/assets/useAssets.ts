@@ -1,48 +1,30 @@
-import { useEffect, useState } from 'react';
-import { listAssets } from '@/api/client';
-import type { Asset, AssetQuery } from '@/lib/types';
+import { useQuery } from '@tanstack/react-query';
+import { getFacets, listAssets } from '@/api/client';
+import { toAssetQuery, type AssetFilters } from '@/lib/asset-query';
 
-interface State {
-  items: Asset[];
-  total: number;
-  nextCursor: string | null;
-  loading: boolean;
-  error: string | null;
-}
-
-/**
- * Baseline loader. Reviewers know this hook is wrong in several ways.
- * Replacing it wholesale is expected and encouraged.
- */
-export function useAssets(query: AssetQuery) {
-  const [state, setState] = useState<State>({
-    items: [],
-    total: 0,
-    nextCursor: null,
-    loading: true,
-    error: null,
+export function useAssets(filters: AssetFilters) {
+  const assetQuery = toAssetQuery(filters);
+  const assetsQuery = useQuery({
+    queryKey: ['assets', assetQuery],
+    queryFn: ({ signal }) => listAssets(assetQuery, signal),
   });
 
-  useEffect(() => {
-    setState((s) => ({ ...s, loading: true, error: null }));
-    listAssets(query)
-      .then((page) => {
-        setState({
-          items: page.items,
-          total: page.total,
-          nextCursor: page.nextCursor,
-          loading: false,
-          error: null,
-        });
-      })
-      .catch((err: unknown) => {
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: err instanceof Error ? err.message : 'Something went wrong',
-        }));
-      });
-  }, [JSON.stringify(query)]);
+  return {
+    items: assetsQuery.data?.items ?? [],
+    total: assetsQuery.data?.total ?? 0,
+    nextCursor: assetsQuery.data?.nextCursor ?? null,
+    loading: assetsQuery.isPending,
+    refreshing: assetsQuery.isFetching && !assetsQuery.isPending,
+    error: assetsQuery.error,
+    reload: assetsQuery.refetch,
+  };
+}
 
-  return state;
+export function useAssetFacets() {
+  return useQuery({
+    queryKey: ['asset-facets'],
+    queryFn: ({ signal }) => getFacets(signal),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 }

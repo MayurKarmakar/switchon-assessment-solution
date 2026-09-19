@@ -19,7 +19,7 @@ export function AssetGrid({ assets, selectedIds, activeId, onToggleSelect, onOpe
     return (
       <div className="empty">
         <p>Nothing matches these filters.</p>
-        <p className="muted">Clear the search box or widen the status filter.</p>
+        <p className="muted">Clear the search or remove one or more filters.</p>
       </div>
     );
   }
