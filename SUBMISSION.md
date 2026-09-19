@@ -90,10 +90,15 @@ Fill in real measurements, not estimates. Say which machine and browser.
 | Rendered DOM nodes at 5,000 rows loaded | | | |
 | Cards re-rendered when toggling one selection | | | |
 | Longest task during sustained scroll | | | |
-| Requests fired while typing a 6-character query | 6 | 1 | Chrome 153 CDP Network log on an Apple MacBook; typed `travel` into a settled page on baseline commit `cecf873` and the Task 1 working tree, then counted only the resulting `/api/assets?q=…` requests. |
+| Requests fired while typing a 6-character query | 6 | 1 | Chrome 153 CDP Network log on Macbook air; typed `travel` into settled baseline and updated pages, then counted only the resulting `/api/assets?q=…` requests. |
 | Production bundle, gzipped | | | |
 
 What was the actual bottleneck, and how did you find it?
+
+The measured bottleneck was request amplification: each search input event
+started another `/api/assets` request. The Chrome CDP Network log showed one
+request for each character in `travel`. A 300 ms trailing debounce was the
+countermeasure and reduced the six requests to one.
 
 ---
 
