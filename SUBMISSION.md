@@ -95,6 +95,8 @@ Fill in real measurements, not estimates. Say which machine and browser.
 
 What was the actual bottleneck, and how did you find it?
 
+**Requests fired while typing a 6-character query**
+
 The measured bottleneck was request amplification: each search input event
 started another `/api/assets` request. The Chrome CDP Network log showed one
 request for each character in `travel`. A 300 ms trailing debounce was the
