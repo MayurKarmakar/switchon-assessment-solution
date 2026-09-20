@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getAsset, thumbnailUrl, updateAsset } from '@/api/client';
+import { getAsset, updateAsset } from '@/api/client';
+import { AssetThumbnail } from '@/features/assets/AssetThumbnail';
 import { formatBytes, formatDate, formatDuration, statusLabel } from '@/lib/format';
 import type { Asset, AssetStatus } from '@/lib/types';
 
@@ -11,10 +12,6 @@ interface Props {
   onSaved: (asset: Asset) => void;
 }
 
-/**
- * Baseline detail panel. Loads on open, saves with no optimistic update,
- * surfaces failures as raw strings, and does nothing about focus.
- */
 export function AssetDetail({ id, onClose, onSaved }: Props) {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +52,11 @@ export function AssetDetail({ id, onClose, onSaved }: Props) {
 
       {asset && (
         <div className="panel__body">
-          <img className="panel__thumb" src={thumbnailUrl(asset.id)} alt="" />
+          <AssetThumbnail
+            assetId={asset.id}
+            hasThumbnail={asset.hasThumbnail}
+            className="panel__thumb"
+          />
           <h3>{asset.name}</h3>
           <dl className="facts">
             <dt>Id</dt>

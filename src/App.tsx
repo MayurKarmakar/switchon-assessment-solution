@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiError, bulkSetStatus } from '@/api/client';
 import { AssetDetail } from '@/features/assets/AssetDetail';
 import { AssetGrid } from '@/features/assets/AssetGrid';
@@ -52,7 +52,18 @@ export function App() {
     setSearchDraft(filters.q);
   }, [cancelPendingSearch, filters.q]);
 
-  const { items, total, loading, refreshing, error, reload } = useAssets(filters);
+  const {
+    items,
+    total,
+    loading,
+    refreshing,
+    error,
+    reload,
+    hasNextPage,
+    loadingNextPage,
+    loadNextPageError,
+    loadNextPage,
+  } = useAssets(filters);
   const assetFacetsQuery = useAssetFacets();
   const isSearchPending = searchDraft.trim() !== filters.q;
 
@@ -91,14 +102,18 @@ export function App() {
     }));
   }
 
-  function toggleSelect(id: string) {
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
+
+  const handleLoadNextPage = useCallback(() => {
+    void loadNextPage();
+  }, [loadNextPage]);
 
   async function applyBulkStatus(next: AssetStatus) {
     const ids = [...selectedIds];
@@ -256,6 +271,12 @@ export function App() {
             assets={items}
             selectedIds={selectedIds}
             activeId={activeId}
+            hasNextPage={hasNextPage}
+            loadingNextPage={loadingNextPage}
+            loadMoreErrorMessage={
+              loadNextPageError ? getAssetListErrorMessage(loadNextPageError) : null
+            }
+            onLoadNextPage={handleLoadNextPage}
             onToggleSelect={toggleSelect}
             onOpen={setActiveId}
           />

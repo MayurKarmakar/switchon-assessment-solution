@@ -12,6 +12,7 @@ export const ASSET_SORTS = [
 ] as const;
 
 export const DEFAULT_ASSET_SORT: AssetSort = 'updatedAt:desc';
+export const ASSET_PAGE_SIZE = 50;
 
 export interface AssetFilters {
   q: string;
@@ -88,6 +89,6 @@ export function toAssetQuery(filters: AssetFilters): AssetQuery {
     kind: normalized.kind.length ? normalized.kind : undefined,
     tag: normalized.tag.length ? normalized.tag : undefined,
     sort: normalized.sort,
-    limit: 24,
+    limit: ASSET_PAGE_SIZE,
   };
 }
