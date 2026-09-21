@@ -161,10 +161,33 @@ button:disabled {
 
 .bulkbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line);
+}
+
+.bulk-outcome {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+  font-size: 13px;
+}
+
+.bulk-outcome > button {
+  margin-top: 6px;
+}
+
+.bulk-failure-list {
+  max-height: 160px;
+  padding-left: 20px;
+  margin: 8px 0 0;
+  overflow: auto;
+}
+
+.bulk-failure-list li + li {
+  margin-top: 4px;
 }
 
 .notice,

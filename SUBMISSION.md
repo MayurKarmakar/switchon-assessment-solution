@@ -41,6 +41,11 @@ Roughly, and how you split it.
 | 11 | Changing one selection re-rendered every mounted card. | `src/App.tsx`, `src/features/assets/AssetGrid.tsx` | Fixed |
 | 12 | Opening the detail panel changed the grid width and scroll geometry. | `src/styles.css` | Fixed |
 | 13 | Thumbnails loaded eagerly, ignored `hasThumbnail`, and had no stable fallback after failure. | `src/features/assets/AssetGrid.tsx`, `src/features/assets/AssetDetail.tsx` | Fixed |
+| 14 | Bulk updates sent the full selection in one request, exceeding the 50-ID API limit. | `src/App.tsx` | Fixed |
+| 15 | Selection had no loaded-set or Shift-click range behavior. | `src/App.tsx`, `src/features/assets/AssetCard.tsx` | Fixed |
+| 16 | Bulk writes left list caches stale and reduced per-item failures to aggregate counts. | `src/App.tsx` | Fixed |
+| 17 | Failed bulk items could not be identified, selectively rolled back, or retried by failure type. | `src/App.tsx` | Fixed |
+| 18 | A detail `409 version_conflict` became a generic error with no safe recovery path. | `src/features/assets/AssetDetail.tsx` | Fixed |
 
 ---
 
@@ -81,7 +86,25 @@ needs index-based scrolling. The measured cost of Task 2 was 8.53 kB gzip.
 
 **Optimistic updates and rollback**
 
+I apply the requested status to the active TanStack Query cache before the
+requests settle, after cancelling list fetches that could overwrite it. The
+operation keeps immutable snapshots of its target assets, sends chunks of at
+most 50 through two workers, then stores returned assets for successes and
+restores only failures. I rejected a component-local overlay because every list
+and detail reader would need to merge a second state layer. When status
+membership or `updatedAt` ordering can change, the active list resets to one
+page and refetches; this sacrifices loaded depth to avoid rebuilding an invalid
+cursor chain.
+
 **Retry and backoff policy**
+
+Task 3 retries only per-item `conflict` failures from resolved bulk responses.
+`legal_hold` and `not_found` stay selected with their exact reasons, and a
+rejected request restores its whole chunk without erasing successful chunks. I
+rejected undo because it would be another partially fallible write. Automatic
+request retries remain outside this change: they need the Task 4 policy for
+attempt caps, jitter, offline pausing and `Retry-After`, rather than a second
+uncoordinated retry path.
 
 **State placement and URL sync**
 
@@ -111,7 +134,7 @@ remove backend variability.
 | Cards re-rendered when toggling one selection | Not reliably comparable: the starter had no card component boundary | 1 of 60; 0 unrelated | A React commit hook counted rendered `AssetCard` fibers for one checkbox change. |
 | Longest task during sustained scroll | Not measurable at 5,000: the starter stopped at 50 | 10.26 ms; 0 tasks over 50 ms | Worst of three 10-second Chrome CDP traces after 5,000 assets loaded, with no page requests. |
 | Requests fired while typing a 6-character query | 6 | 1 | Typed `travel` in the original and updated builds and counted the resulting `/api/assets?q=…` requests in the Chrome CDP Network log. |
-| Production bundle, gzipped | 48 kB reference supplied in the README | 67.89 kB | `npm run build`; JavaScript gzip size from the Vite production output. |
+| Production bundle, gzipped | 48 kB reference supplied in the README | 70.87 kB | `npm run build`; JavaScript gzip size from the Vite production output. |
 
 What was the actual bottleneck, and how did you find it?
 
@@ -147,25 +170,28 @@ state and stable callbacks reduced the measured update to the changed card only.
 
 ## Interface decisions
 
-The interface work focused on truthful request feedback and spatial stability as
-the library grows. Search and related filters stay together, and the result area
-shows one initial request state at a time. Pagination feedback remains local to
-the list so already loaded assets stay usable, while reserved card geometry and
-an overlaid detail panel prevent page loads or panel use from moving the grid.
+The interface work focused on truthful request feedback, stable list geometry
+and recoverable partial failure. Search and related filters stay together;
+pagination feedback leaves loaded assets usable; bulk progress locks conflicting
+controls while read-only inspection remains available. Precise outcome rows keep
+failed assets and their recovery action connected to the bulk controls.
 
 - **Visual system.** Existing colour tokens, system typography and spacing remain
   in `src/styles.css`. Fixed card bodies and 16:10 thumbnail frames keep the
-  virtual grid predictable, and controls wrap at the existing narrow breakpoint.
-- **Status treatment.** Tasks 1–2 did not redesign status styling. Existing cards
-  and filters continue to show text labels, so colour is not the only status cue.
+  virtual grid predictable, and bulk controls wrap at narrow widths.
+- **Status treatment.** Cards, filters and status actions use text labels for all
+  four statuses, so their meaning does not depend on colour. The selected target
+  status is also stated in the bulk result.
 - **States.** Initial loading, successful empty results and initial errors are
-  mutually exclusive. Next-page loading or failure leaves existing cards in
-  place and offers `Try again`; missing thumbnails use a same-size placeholder.
+  mutually exclusive. Next-page failure preserves loaded cards. Bulk progress
+  disables competing writes; partial failure lists each asset and reason, keeps
+  failures selected and offers conflict-only retry. A detail conflict loads the
+  latest version before offering an explicit reapply.
 - **Contrast.** WCAG relative-luminance calculations checked the modified text,
   feedback and focus colours; the lowest measured ratio was 5.26:1.
-- **Copy.** Raw API failures were replaced with short, actionable messages.
-  Rate limiting asks the user to wait and retry, temporary unavailability asks
-  them to retry, and the fallback suggests checking the connection.
+- **Copy.** Raw API failures were replaced with actionable messages. Bulk rows
+  name the failed asset and reason; detail conflicts distinguish “review and
+  reapply” from “the latest version already matches.”
 
 Screenshots in the repo are welcome — link them here.
 
@@ -182,13 +208,30 @@ Screenshots in the repo are welcome — link them here.
   justified the extra cursor and scroll-restoration complexity.
 - The detail panel overlays the right side of the grid while open. This preserves
   grid dimensions and scroll position at the cost of temporarily covering cards.
+- Bulk requests run with concurrency two. A higher limit could finish faster,
+  but this cap bounds simultaneous server work to two 50-ID chunks.
+- Status-filter changes and `updatedAt` ordering reset the active list to page
+  one after a successful write. This preserves cursor correctness at the cost of
+  loaded depth and scroll position.
+- Detail conflicts require review and an explicit reapply. The extra action
+  prevents a stale view from silently overwriting a newer decision.
 
 ## Critique of the API
 
-What you would change about the backend contract, and what it forced you to do in
-the client that you would rather not have.
+Bulk writes return useful per-ID outcomes, but there is no idempotency key or
+operation-status endpoint. If a write response is lost, the client cannot know
+whether replay is safe without reading current state. I would add an idempotency
+key and a retrievable operation result.
+
+Status writes also change `updatedAt`, while list pagination uses opaque cursors.
+The contract does not expose a stable snapshot or a way to repair affected page
+boundaries, so the client must discard loaded depth and refetch page one when a
+write can change active membership or ordering.
 
 ## Anything you would like us to look at
 
-The normalized query key now owns cancellation and cursor pagination, while the
-virtualized grid keeps selection updates and mounted card work local.
+The range-selection model in `App.tsx` works across unmounted virtual cards and
+supports inward resizing from a stable anchor. `bulkAssetStatus.ts` bounds
+request concurrency, while `assetCache.ts` keeps optimistic success, selective
+rollback and cursor-safe reconciliation separate. The detail conflict flow is
+also deliberate: it reloads the latest version before allowing reapplication.

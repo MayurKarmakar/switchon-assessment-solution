@@ -70,8 +70,8 @@ export function getFacets(signal?: AbortSignal): Promise<AssetFacets> {
   return request<AssetFacets>('/api/facets', { signal });
 }
 
-export function getAsset(id: string): Promise<Asset> {
-  return request<Asset>(`/api/assets/${id}`);
+export function getAsset(id: string, signal?: AbortSignal): Promise<Asset> {
+  return request<Asset>(`/api/assets/${id}`, { signal });
 }
 
 export function getAssetsByIds(ids: string[]): Promise<{ items: Asset[]; missing: string[] }> {

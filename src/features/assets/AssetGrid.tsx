@@ -14,11 +14,12 @@ interface Props {
   assets: Asset[];
   selectedIds: Set<string>;
   activeId: string | null;
+  selectionDisabled: boolean;
   hasNextPage: boolean;
   loadingNextPage: boolean;
   loadMoreErrorMessage: string | null;
   onLoadNextPage: () => void;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (id: string, shiftKey: boolean) => void;
   onOpen: (id: string) => void;
 }
 
@@ -61,6 +62,7 @@ export function AssetGrid({
   assets,
   selectedIds,
   activeId,
+  selectionDisabled,
   hasNextPage,
   loadingNextPage,
   loadMoreErrorMessage,
@@ -152,6 +154,7 @@ export function AssetGrid({
                 asset={asset}
                 selected={selectedIds.has(asset.id)}
                 active={activeId === asset.id}
+                selectionDisabled={selectionDisabled}
                 onToggleSelect={onToggleSelect}
                 onOpen={onOpen}
               />

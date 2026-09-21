@@ -7,7 +7,8 @@ interface Props {
   asset: Asset;
   selected: boolean;
   active: boolean;
-  onToggleSelect: (id: string) => void;
+  selectionDisabled: boolean;
+  onToggleSelect: (id: string, shiftKey: boolean) => void;
   onOpen: (id: string) => void;
 }
 
@@ -15,6 +16,7 @@ export const AssetCard = memo(function AssetCard({
   asset,
   selected,
   active,
+  selectionDisabled,
   onToggleSelect,
   onOpen,
 }: Props) {
@@ -39,8 +41,12 @@ export const AssetCard = memo(function AssetCard({
         type="checkbox"
         className="card__check"
         checked={selected}
-        onClick={(event) => event.stopPropagation()}
-        onChange={() => onToggleSelect(asset.id)}
+        disabled={selectionDisabled}
+        readOnly
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleSelect(asset.id, event.shiftKey);
+        }}
       />
     </div>
   );
