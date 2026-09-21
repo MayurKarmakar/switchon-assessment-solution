@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { getFacets, listAssets } from '@/api/client';
+import { getAssetListQueryKey } from '@/features/assets/assetCache';
 import { toAssetQuery, type AssetFilters } from '@/lib/asset-query';
 
 export function useAssets(filters: AssetFilters) {
   const assetQuery = toAssetQuery(filters);
   const assetsQuery = useInfiniteQuery({
-    queryKey: ['assets', assetQuery],
+    queryKey: getAssetListQueryKey(filters),
     initialPageParam: null as string | null,
     queryFn: ({ pageParam, signal }) =>
       listAssets(
