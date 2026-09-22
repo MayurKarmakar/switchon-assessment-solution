@@ -8,7 +8,7 @@ chose not to do something.
 
 Paste your Loom (or equivalent) link here. 5–10 minutes.
 
-**Link:**
+**Link:** https://drive.google.com/file/d/1FkruPlWreMtl9D-Q2BB2eHoLI4biYZAD/view?usp=drive_link
 
 ---
 
@@ -43,9 +43,6 @@ Approximately 13.5 focused hours before recording the walkthrough.
 - Task 3 — bulk operations and conflict recovery (4 hours)
 - Required performance measurements and final verification (2 hours)
 - Deployment and delivery documentation (2 hours)
-
-The walkthrough recording is not included yet. I will add its time after it is
-recorded.
 
 ---
 
