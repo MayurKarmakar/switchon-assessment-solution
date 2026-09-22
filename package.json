@@ -12,7 +12,8 @@
     "dev:web": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "node deploy/server.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.1",
